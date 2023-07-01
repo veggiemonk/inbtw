@@ -2,31 +2,31 @@
 
 `inbtw` (a.k.a. "in between"), is a small utility to extract the text in between two tags.
 
-```
+```bash mdox-exec="inbtw" mdox-expect-exit-code=2
+
 "inbtw" extracts the text between tags.
 
 A tag is defined by "// [START " and "// [END "
 
 Example for a file containing:
 
-        // [START mytag]
-        var Bla = "bla"
-        // [END mytag]
+	// [START mytag]
+	var Bla = "bla"
+	// [END mytag]
 
 executing: 
 
-        > inbtw mytag myfile.go 
+	> inbtw mytag myfile.go 
 
 will yield: 
 
-        var Bla = "bla"
+	var Bla = "bla"
+
 ```
 
 ## Purpose
 
-To extract code snippets in order to render them in a document. 
-It requires less maintenance than something like `sed` because it needs line numbers,
-and less complicated than regex or `awk`. 
+To extract code snippets in order to render them in a document. It requires less maintenance than something like `sed` because it needs line numbers, and less complicated than regex or `awk`.
 
 ## Installing
 

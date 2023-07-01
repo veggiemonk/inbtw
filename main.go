@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+//go:generate mdox fmt -l README.md
+
 var (
 	// ErrUnknownArgs is an error specifying a wrong argument input
 	ErrUnknownArgs = errors.New("unknown arguments")
@@ -17,8 +19,7 @@ var (
 )
 
 func usage() {
-	u := `
-"` + name + `" extracts the text between tags.
+	u := name + `" extracts the text between tags.
 
 A tag is defined by "` + START + `" and "` + END + `"
 
@@ -50,16 +51,20 @@ const (
 )
 
 func main() {
+	os.Exit(main1())
+}
+
+func main1() int {
 	if err := run(os.Args[1:]...); err != nil {
 		if errors.Is(err, ErrUnknownArgs) {
 			usage()
-			os.Exit(2)
+			return 2
 		}
 		_, _ = fmt.Fprintf(os.Stderr, "error: %s\n", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
-
 func run(args ...string) error {
 	switch l := len(args); {
 	case l == 1:
