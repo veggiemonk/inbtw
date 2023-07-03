@@ -61,7 +61,6 @@ func main() {
 
 func main1() int {
 	var tag, in string
-	var tl int
 	flag.StringVar(&tag, "tag", "", "tag containing the text to extract.")
 	flag.StringVar(
 		&in,
@@ -69,7 +68,6 @@ func main1() int {
 		"",
 		"file(s) to parse, multiple files can be separated by ',', '-' for stdin.",
 	)
-	flag.IntVar(&tl, "trim", 0, "trim left number of spaces.")
 	flag.Usage = Usage
 	flag.Parse()
 
