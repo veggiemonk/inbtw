@@ -22,7 +22,7 @@ var (
 )
 
 var Usage = func() {
-	u := name + `" extracts the text between tags.
+	u := name + ` extracts the text between tags.
 
 	A tag is defined by "` + START + `" and "` + END + `"
 

@@ -3,7 +3,7 @@
 `inbtw` (a.k.a. "in between"), is a small utility to extract the text in between two tags.
 
 ```bash mdox-exec="inbtw" mdox-expect-exit-code=2
-inbtw" extracts the text between tags.
+inbtw extracts the text between tags.
 
 	A tag is defined by "// [START " and "// [END "
 
