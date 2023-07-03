@@ -15,7 +15,7 @@ inbtw" extracts the text between tags.
 
 	executing:
 
-		> inbtw-tag mytag -f myfile.go
+		> inbtw -tag mytag -f myfile.go
 
 	will yield:
 
@@ -26,8 +26,6 @@ Usage of inbtw:
     	file(s) to parse, multiple files can be separated by ',', '-' for stdin.
   -tag string
     	tag containing the text to extract.
-  -trim int
-    	trim left number of spaces.
 ```
 
 ## Purpose
