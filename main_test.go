@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -9,9 +10,10 @@ import (
 
 func TestExtractTags(t *testing.T) {
 	tests := []struct {
-		name string
-		in   string
-		want map[string]string
+		name    string
+		in      string
+		want    map[string]string
+		wantErr error
 	}{
 		{
 			name: "simple",
@@ -58,12 +60,66 @@ no end tag
 `,
 			want: map[string]string{"xxx": "something\nhere\nno end tag"},
 		},
+		{
+			name: "multi",
+			in: `
+// [START xxx]
+something here
+// [END xxx]
+something something
+something
+// [START aaa]
+again something here
+// [END aaa]
+`,
+			want: map[string]string{
+				"aaa": "again something here",
+				"xxx": "something here",
+			},
+		},
+		{
+			name: "interleave",
+			in: `
+// [START xxx]
+something here
+something something
+// [START aaa]
+something
+// [END xxx]
+again something here
+// [END aaa]
+`,
+			want: map[string]string{
+				"aaa": "something\nagain something here",
+				"xxx": "something here\nsomething something\nsomething",
+			},
+		},
+		{
+			name: "err: interleave same",
+			in: `
+// [START xxx]
+something here
+something something
+// [START xxx]
+something
+// [END xxx]
+again something here
+// [END xxx]
+`,
+			want:    nil,
+			wantErr: ErrDuplicate,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(
 			tt.name, func(t *testing.T) {
-				got := ExtractTags(bytes.NewReader([]byte(tt.in)))
+				got, err := ExtractTags(bytes.NewReader([]byte(tt.in)))
+				if tt.wantErr != nil {
+					if !errors.Is(err, tt.wantErr) {
+						t.Fatal("should err with", tt.wantErr)
+					}
+				}
 				if diff := cmp.Diff(got, tt.want); diff != "" {
 					t.Errorf("\n- got\n+ want:\n %s", diff)
 				}

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -14,30 +15,34 @@ import (
 var (
 	// ErrUnknownArgs is an error specifying a wrong argument input
 	ErrUnknownArgs = errors.New("unknown arguments")
-	// ErrTagNotFound is an error specifying a missing tag
-	ErrTagNotFound = errors.New("not found")
+	// ErrNotFound is an error specifying a missing tag
+	ErrNotFound = errors.New("not found")
+	// ErrDuplicate is an error specifying a duplicate start tag
+	ErrDuplicate = errors.New("duplicate")
 )
 
-func usage() {
+var Usage = func() {
 	u := name + `" extracts the text between tags.
 
-A tag is defined by "` + START + `" and "` + END + `"
+	A tag is defined by "` + START + `" and "` + END + `"
 
-Example for a file containing:
+	Example for a file containing:
 
-	// [START mytag]
-	var Bla = "bla"
-	// [END mytag]
+		// [START mytag]
+		var Bla = "bla"
+		// [END mytag]
 
-executing: 
+	executing:
 
-	> ` + name + ` mytag myfile.go 
+		> ` + name + ` -tag mytag -f myfile.go
 
-will yield: 
+	will yield:
 
-	var Bla = "bla"
-`
+		var Bla = "bla"
+	`
 	fmt.Printf("%s\n", u)
+	fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
+	flag.PrintDefaults()
 }
 
 const (
@@ -46,8 +51,8 @@ const (
 	// END is the tag to end a section to extract
 	END = "// [END "
 
-	name      = "inbtw"
-	end_token = "]"
+	name     = "inbtw"
+	endToken = "]"
 )
 
 func main() {
@@ -55,9 +60,22 @@ func main() {
 }
 
 func main1() int {
-	if err := run(os.Args[1:]...); err != nil {
+	var tag, in string
+	var tl int
+	flag.StringVar(&tag, "tag", "", "tag containing the text to extract.")
+	flag.StringVar(
+		&in,
+		"f",
+		"",
+		"file(s) to parse, multiple files can be separated by ',', '-' for stdin.",
+	)
+	flag.IntVar(&tl, "trim", 0, "trim left number of spaces.")
+	flag.Usage = Usage
+	flag.Parse()
+
+	if err := run(tag, in); err != nil {
 		if errors.Is(err, ErrUnknownArgs) {
-			usage()
+			flag.Usage()
 			return 2
 		}
 		_, _ = fmt.Fprintf(os.Stderr, "error: %s\n", err)
@@ -65,21 +83,25 @@ func main1() int {
 	}
 	return 0
 }
-func run(args ...string) error {
-	switch l := len(args); {
-	case l == 1:
-		tag := args[0]
 
-		m := ExtractTags(os.Stdin)
-		x, ok := m[tag]
-		if !ok {
-			return fmt.Errorf("tag %q: %w", tag, ErrTagNotFound)
+func run(tag string, in string) error {
+	for _, s := range strings.Split(in, ",") {
+		if err := Extract(s, tag, os.Stdout); err != nil {
+			return err
 		}
-		_, _ = fmt.Fprint(os.Stdout, x)
+	}
 
-	case l == 2:
-		tag := args[0]
-		fp := args[1]
+	return nil
+
+}
+
+func Extract(fp string, tag string, w io.Writer) error {
+	var in io.Reader
+	if fp == "" {
+		return ErrUnknownArgs
+	}
+	if fp != "-" {
+
 		f, err := os.OpenFile(fp, os.O_RDONLY, os.ModePerm)
 		if err != nil {
 			return fmt.Errorf("opening file %s: %w", fp, err)
@@ -90,33 +112,54 @@ func run(args ...string) error {
 				_, _ = fmt.Fprint(os.Stderr, ferr)
 			}
 		}(f)
-
-		m := ExtractTags(f)
-		x, ok := m[tag]
-		if !ok {
-			return fmt.Errorf("tag %q: %w", tag, ErrTagNotFound)
-		}
-		_, err = fmt.Fprint(os.Stdout, x)
-		if err != nil {
-			return fmt.Errorf("write %s: %w", fp, err)
-		}
-	default:
-		return fmt.Errorf("%w: %s", ErrUnknownArgs, args)
+		in = f
+	} else {
+		in = os.Stdin
 	}
+
+	m, err := ExtractTags(in)
+	if err != nil {
+		return err
+	}
+	if tag == "" {
+		for k, v := range m {
+			_, _ = fmt.Fprintf(w, "-- %s --\n%s\n", k, v)
+		}
+		return nil
+	}
+
+	x, ok := m[tag]
+	if !ok {
+		return fmt.Errorf("tag %q: %w", tag, ErrNotFound)
+	}
+	_, err = fmt.Fprint(w, x)
+	if err != nil {
+		return fmt.Errorf("write %s: %w", fp, err)
+	}
+
+	// return fmt.Errorf("%w: %s", ErrUnknownArgs, args)
 
 	return nil
 }
 
 // ExtractTags parses the text between [START] and [END]
-func ExtractTags(r io.Reader) map[string]string {
+func ExtractTags(r io.Reader) (map[string]string, error) {
 	s := bufio.NewScanner(r)
 	m := make(map[string]string)
 	ent := make(map[string]struct{})
+	var i uint64 = 0
 
 	for s.Scan() {
 		line := s.Text()
+		i++
 
 		if name, ok := extractTagName(START, line); ok {
+			if _, ok := ent[name]; ok {
+				return nil, fmt.Errorf(
+					"tag %s (line %d): %w",
+					name, i, ErrDuplicate,
+				)
+			}
 			ent[name] = struct{}{}
 			continue
 		}
@@ -135,7 +178,7 @@ func ExtractTags(r io.Reader) map[string]string {
 			m[e] = m[e] + "\n" + line
 		}
 	}
-	return m
+	return m, nil
 }
 
 func extractTagName(fix, line string) (string, bool) {
@@ -143,7 +186,7 @@ func extractTagName(fix, line string) (string, bool) {
 	if !found {
 		return "", false
 	}
-	name, _, ok := strings.Cut(after, end_token)
+	name, _, ok := strings.Cut(after, endToken)
 	if !ok {
 		return "", false
 	}
