@@ -135,8 +135,6 @@ func Extract(fp string, tag string, w io.Writer) error {
 		return fmt.Errorf("write %s: %w", fp, err)
 	}
 
-	// return fmt.Errorf("%w: %s", ErrUnknownArgs, args)
-
 	return nil
 }
 
